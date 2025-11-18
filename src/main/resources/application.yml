@@ -1,1 +1,3 @@
-spring.application.name=jpa-study
+spring:
+  application:
+    name: jpa-study
