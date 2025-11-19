@@ -10,6 +10,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 import java.util.List;
 
@@ -43,8 +44,13 @@ class StudentPageRepositoryTest {
         int amount = 10; // 한 페이지에 보여줄 데이터의 양
 
         // 페이지 정보 객체 (Pagerable)
-        // 여기서는 페이지 번호가 zero-base임. 1페이지를 0으로 취급
-        Pageable pageable = PageRequest.of(pageNo - 1, amount);
+        // 여기서는 페이지 번호가 zero-based임. 1페이지를 0으로 취급
+        // 페이징과 함께 정렬할 때는 Pageable 객체 생성 시 정렬 조건 지정.
+        Pageable pageable = PageRequest.of(
+                pageNo - 1,
+                amount,
+                Sort.by("name").descending()
+        );
 
         // when
         Page<Student> studentPage = studentPageRepository.findAll(pageable);
@@ -117,7 +123,36 @@ class StudentPageRepositoryTest {
         System.out.println("next = " + next);
         studentList.forEach(System.out::println);
         System.out.println("\n\n\n");
+    }
 
+    @Test
+    @DisplayName("쿼리 메서드 정렬")
+    void sortTest() {
+        // given
+        String name = "2";
+
+        // when
+        List<Student> list = studentPageRepository.findByNameContainingOrderByMajorDesc(name);
+
+        // then
+        System.out.println("\n\n\n");
+        list.forEach(System.out::println);
+        System.out.println("\n\n\n");
+
+
+    }
+
+    @Test
+    @DisplayName("매개 값 Sort 객체로 정렬")
+    void sortTest2() {
+        // given
+
+
+        // when
+        List<Student> list = studentPageRepository.findByNameContaining("5", Sort.by(Sort.Order.desc("city")));
+
+        // then
+        list.forEach(System.out::println);
 
     }
 }
