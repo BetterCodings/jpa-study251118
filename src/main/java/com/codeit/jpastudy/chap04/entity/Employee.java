@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 @Getter
-@ToString
+@ToString(exclude = "department")
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
