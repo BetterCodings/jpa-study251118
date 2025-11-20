@@ -4,6 +4,7 @@ import com.codeit.jpastudy.chap05.entity.Account;
 import com.codeit.jpastudy.chap05.repository.AccountRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -14,10 +15,11 @@ import java.math.BigDecimal;
 public class AccountService {
 
     private final AccountRepository accountRepository;
+    private final TransferService transferService;
 
-    /*
-    트랜잭션 없이 이체
-
+    /**
+     * 트랜잭션 없이 이체 (문제 상황 체험용)
+     * ❌ 이 메서드는 트랜잭션이 없어서 데이터 불일치가 발생할 수 있음!
      */
     public void transferWithoutTransaction(Long fromId, Long toId, BigDecimal amount) {
         Account from = accountRepository.findById(fromId)
@@ -68,5 +70,50 @@ public class AccountService {
         // 예외를 발생시키고 싶으면 DB쪽에 진짜 읽기 전용 설정을 진행해야 합니다.
         account.setBalance(BigDecimal.valueOf(10000000));
         return account;
+    }
+
+    ////////////////////////////////////////////////////////////////////////
+
+    /**
+     * REQUIRED 전파 옵션 사용
+     * 메서드 내부에서 다른 트랜잭션 메서드 호출 시 REQUIRED로 설정되어 있다면
+     * 하나의 트랜잭션 단위로 모두를 묶는다.
+     */
+    @Transactional(propagation = Propagation.REQUIRED)
+    public void transferWithRecord(Long fromId, Long toId, BigDecimal amount) {
+        Account from = accountRepository.findById(fromId)
+                .orElseThrow(() -> new RuntimeException("출금 계좌를 찾을 수 없습니다."));
+        Account to = accountRepository.findById(toId)
+                .orElseThrow(() -> new RuntimeException("입금 계좌를 찾을 수 없습니다."));
+
+        // 출금
+        from.withdraw(amount);
+        to.deposit(amount);
+
+        accountRepository.save(from);
+        accountRepository.save(to);
+
+        // 이체 내역을 기록하고 싶다.
+        transferService.recordTransfer(from, to, amount);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED)
+    public void transferWithLog(Long fromId, Long toId, BigDecimal amount) {
+        Account from = accountRepository.findById(fromId)
+                .orElseThrow(() -> new RuntimeException("출금 계좌를 찾을 수 없습니다."));
+        Account to = accountRepository.findById(toId)
+                .orElseThrow(() -> new RuntimeException("입금 계좌를 찾을 수 없습니다."));
+
+        // 출금
+        from.withdraw(amount);
+        to.deposit(amount);
+
+        accountRepository.save(from);
+        accountRepository.save(to);
+
+        // 이체 내역을 기록하고 싶다.
+        transferService.recordTransferWithNew(from, to, amount);
+
+        throw new RuntimeException("이체 처리 중 오류 발생");
     }
 }

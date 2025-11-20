@@ -2,6 +2,7 @@ package com.codeit.jpastudy.chap05.service;
 
 import com.codeit.jpastudy.chap05.entity.Account;
 import com.codeit.jpastudy.chap05.repository.AccountRepository;
+import com.codeit.jpastudy.chap05.repository.TransferRepository;
 import jakarta.transaction.Transactional;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -23,6 +24,9 @@ class AccountServiceTest {
     @Autowired
     private AccountRepository accountRepository;
 
+    @Autowired
+    private TransferRepository transferRepository;
+
     private Account fromAccount;
     private Account toAccount;
 
@@ -40,6 +44,7 @@ class AccountServiceTest {
         // 테스트 후 데이터를 정리하는 용도로 사용하는 메서드
         // 기존 데이터 삭제 (각 테스트가 독립적으로 실행되도록)
         // @BeforeEach 맨 앞에 작성해도 된다.
+        transferRepository.deleteAll();
         accountRepository.deleteAll();
     }
 
@@ -119,5 +124,60 @@ class AccountServiceTest {
         Account foundAcc = accountRepository.findById(account.getId()).orElseThrow();
         System.out.println("서비스 전달 계좌: " + account);
         System.out.println("레포지토리 전달 계좌: " + foundAcc);
+    }
+    
+    @Test
+    @DisplayName("Step2: REQUIRED 전파 옵션 테스트")
+    void testRequiredPropagation() {
+        // given
+        BigDecimal transferAmount = BigDecimal.valueOf(500);
+
+        // when
+        assertThrows(RuntimeException.class, () -> {
+            accountService.transferWithRecord(
+                    fromAccount.getId(),
+                    toAccount.getId(),
+                    transferAmount
+            );
+        });
+
+        // then
+        long transferCount = transferRepository.count();
+        assertEquals(0, transferCount);
+
+        // 만약 계좌 이체 기록 과정에서 문제가 발생했다면, 입금과 출금의 작업도 취소되지 않을까?
+        Account fromAfter = accountRepository.findById(fromAccount.getId()).orElseThrow();
+        Account toAfter = accountRepository.findById(toAccount.getId()).orElseThrow();
+
+        assertEquals(0, BigDecimal.valueOf(10000).compareTo(fromAfter.getBalance()));
+        assertEquals(0, BigDecimal.valueOf(5000).compareTo(toAfter.getBalance()));
+    }
+
+    @Test
+    @DisplayName("Step2: REQUIRED_NEW 전파 옵션 테스트")
+    void testRequiresNewPropagation() {
+        // given
+        BigDecimal transferAmount = BigDecimal.valueOf(500);
+
+        // when
+        assertThrows(RuntimeException.class, () -> {
+            accountService.transferWithLog(
+                    fromAccount.getId(),
+                    toAccount.getId(),
+                    transferAmount
+            );
+        });
+
+        // then
+        long transferCount = transferRepository.count();
+        assertEquals(1, transferCount);
+
+        // 만약 계좌 이체 기록 과정에서 문제가 발생했다면, 입금과 출금의 작업도 취소되지 않을까?
+        Account fromAfter = accountRepository.findById(fromAccount.getId()).orElseThrow();
+        Account toAfter = accountRepository.findById(toAccount.getId()).orElseThrow();
+
+        assertEquals(0, BigDecimal.valueOf(10000).compareTo(fromAfter.getBalance()));
+        assertEquals(0, BigDecimal.valueOf(5000).compareTo(toAfter.getBalance()));
+
     }
 }
